@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Гамблерская руина — визуализация (монета и шарик)</title>
+  <style>
+    :root {
+      --bg: #0f172a;           /* slate-900 */
+      --panel: #111827;        /* gray-900 */
+      --panel-2: #1f2937;      /* gray-800 */
+      --text: #e5e7eb;         /* gray-200 */
+      --muted: #9ca3af;        /* gray-400 */
+      --accent: #38bdf8;       /* sky-400 */
+      --danger: #fb7185;       /* rose-400 */
+      --success: #34d399;      /* emerald-400 */
+      --warn: #f59e0b;         /* amber-500 */
+      --grid: #374151;         /* gray-700 */
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 70% 0%, #0b1220 10%, var(--bg));
+      color: var(--text);
+    }
+    .app {
+      max-width: 1100px;
+      margin: 24px auto;
+      padding: 16px;
+    }
+    .header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .title { font-size: 1.4rem; font-weight: 700; letter-spacing: .2px; }
+    .subtitle { color: var(--muted); }
+
+    .panel {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid #1f2937;
+      border-radius: 16px;
+      padding: 14px 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.02);
+    }
+
+    .controls { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 12px; align-items: center; }
+    .controls .group { display: flex; gap: 10px; align-items: center; }
+
+    button {
+      background: #111827;
+      border: 1px solid #334155;
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: .15s ease;
+      font-weight: 600;
+    }
+    button:hover { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56,189,248,.15); }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+
+    .stat {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px; margin-top: 12px; font-size: .95rem;
+    }
+    .stat .item { background: #0b1324; border: 1px solid #1f2937; border-radius: 12px; padding: 10px 12px; }
+    .stat .label { color: var(--muted); font-size: .8rem; }
+    .stat .value { font-size: 1.15rem; font-weight: 700; }
+
+    .canvas-wrap {
+      margin-top: 16px;
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #1f2937;
+      background: #0b1220;
+    }
+    canvas { width: 100%; height: 560px; display: block; }
+
+    .legend { margin-top: 10px; color: var(--muted); font-size: .9rem; }
+    .pill { display: inline-flex; gap: 6px; align-items: center; padding: 6px 10px; border-radius: 999px; border: 1px solid #334155; background: #0b1324; }
+    .dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+    .dot.path { background: var(--accent); }
+    .dot.ball { background: var(--success); }
+    .dot.boundary { background: var(--danger); }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background: #0b1324; border: 1px solid #334155; padding: 2px 6px; border-radius: 6px; }
+
+    .footer { margin-top: 14px; color: var(--muted); font-size: .9rem; }
+    .grow { flex: 1 1 auto }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; }
+    input[type=range] { width: 180px; }
+    input[type=number] { width: 72px; padding: 8px 10px; border-radius: 8px; border: 1px solid #334155; background: #0b1324; color: var(--text); }
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="title">Случайное блуждание (орёл/решка) — «шарик» от −10 до +10</div>
+    <div class="subtitle">шаг каждую секунду (по умолчанию) — траектория сохраняется, движение снизу вверх</div>
+  </div>
+
+  <div class="panel controls">
+    <div class="group">
+      <button id="startBtn">▶︎ Старт</button>
+      <button id="stepBtn">⏭ Один шаг</button>
+      <button id="stopBtn" disabled>⏸ Пауза</button>
+      <button id="resetBtn">↺ Сброс</button>
+    </div>
+    <div class="grow"></div>
+    <div class="group">
+      <label for="speed">Скорость:</label>
+      <input id="speed" type="range" min="100" max="2000" step="100" value="1000" />
+      <span id="speedLabel" class="mono">1000 мс</span>
+    </div>
+    <div class="group">
+      <label for="startPos">Стартовая позиция:</label>
+      <input id="startPos" type="range" min="-10" max="10" step="1" value="0" />
+      <span id="startPosLabel" class="mono">0</span>
+    </div>
+    <div class="group">
+      <label>Левый:</label>
+      <input id="startLeft" type="number" min="0" max="20" step="1" value="10" />
+      <label>Правый:</label>
+      <input id="startRight" type="number" min="0" max="20" step="1" value="10" />
+      <span class="mono">Σ=20</span>
+    </div>
+  </div>
+    <div class="grow"></div>
+    <div class="group">
+      <label for="speed">Скорость:</label>
+      <input id="speed" type="range" min="100" max="2000" step="100" value="1000" />
+      <span id="speedLabel" class="mono">1000 мс</span>
+    </div>
+  </div>
+
+  <div class="stat">
+    <div class="item"><div class="label">Левый (руб)</div><div class="value mono" id="leftOut">10</div></div>
+    <div class="item"><div class="label">Правый (руб)</div><div class="value mono" id="rightOut">10</div></div>
+    <div class="item"><div class="label">Позиция (−10…+10)</div><div class="value mono" id="posOut">0</div></div>
+    <div class="item"><div class="label">Шаги</div><div class="value mono" id="stepsOut">0</div></div>
+    <div class="item"><div class="label">Последняя монета</div><div class="value mono" id="coinOut">—</div></div>
+    <div class="item"><div class="label">Состояние</div><div class="value mono" id="stateOut">готов</div></div>
+  </div><div class="value mono" id="posOut">0</div></div>
+    <div class="item"><div class="label">Шаги</div><div class="value mono" id="stepsOut">0</div></div>
+    <div class="item"><div class="label">Последняя монета</div><div class="value mono" id="coinOut">—</div></div>
+    <div class="item"><div class="label">Состояние</div><div class="value mono" id="stateOut">готов</div></div>
+  </div>
+
+  <div class="canvas-wrap panel">
+    <canvas id="cv" width="1100" height="560"></canvas>
+  </div>
+
+  <div class="legend">
+    <span class="pill"><span class="dot path"></span>траектория</span>
+    &nbsp; <span class="pill"><span class="dot ball"></span>текущая позиция</span>
+    &nbsp; <span class="pill"><span class="dot boundary"></span>границы −10 / +10</span>
+    &nbsp; <span class="pill">вниз — прошлое, вверх — будущее</span>
+    &nbsp; <span class="pill">исход: достигнет края → остановка</span>
+  </div>
+
+  <div class="footer">
+    Под капотом — классическая «гибель игрока» (gambler's ruin) с симметричным шагом. Если хочешь, можно
+    быстро добавить несбалансированную монету или множественные прогоны.
+  </div>
+</div>
+
+<script>
+(function(){
+  const MIN = -10, MAX = 10; const TOT = 20; // 10 слева и 10 справа от центра, всего 20 рублей (10+10)
+  const PADDING = 40;        // поля для подписей
+  let pos = 0;               // старт в центре (единица — вправо, ноль — влево)
+  let steps = 0;
+  let running = false;
+  let timer = null;
+
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+
+  // UI
+  const posOut = document.getElementById('posOut');
+  const stepsOut = document.getElementById('stepsOut');
+  const coinOut = document.getElementById('coinOut');
+  const stateOut = document.getElementById('stateOut');
+  const speed = document.getElementById('speed');
+  const speedLabel = document.getElementById('speedLabel');
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const stepBtn = document.getElementById('stepBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const startPos = document.getElementById('startPos');
+  const startPosLabel = document.getElementById('startPosLabel');
+  const startLeft = document.getElementById('startLeft');
+  const startRight = document.getElementById('startRight');
+  const leftOut = document.getElementById('leftOut');
+  const rightOut = document.getElementById('rightOut');
+
+  // Геометрия/шкалы
+  let rowH = 10; // вертикальный шаг (px). Будем адаптировать под DPR
+  function setupCanvas() {
+    const cssW = cv.clientWidth;
+    const cssH = cv.clientHeight;
+    cv.width  = Math.round(cssW * dpr);
+    cv.height = Math.round(cssH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // логические пиксели
+    rowH = 10; // логические px между шагами (чем больше, тем выше полотно «на один шаг»)
+    redraw();
+  }
+  window.addEventListener('resize', setupCanvas);
+
+  // История для отрисовки
+  const history = []; // массив позиций по шагам: [0, 1, 0, -1, ...]
+
+  function xFromPos(p){
+    const w = cv.clientWidth;
+    const inner = w - 2 * PADDING;
+    return PADDING + ((p - MIN) / (MAX - MIN)) * inner;
+  }
+  function yFromStep(t){
+    // снизу вверх: t=0 внизу (высота - PADDING), затем каждый шаг поднимаемся на rowH
+    const h = cv.clientHeight;
+    const yBottom = h - PADDING;
+    return yBottom - t * rowH;
+  }
+
+  function drawAxes(){
+    const w = cv.clientWidth, h = cv.clientHeight;
+    ctx.clearRect(0, 0, w, h);
+
+    // фон сетки
+    ctx.save();
+    ctx.strokeStyle = '#374151';
+    ctx.lineWidth = 1;
+
+    // вертикальная сетка для позиций −10…+10
+    for (let p = MIN; p <= MAX; p++){
+      const x = xFromPos(p);
+      ctx.beginPath();
+      ctx.moveTo(x, PADDING/2);
+      ctx.lineTo(x, h - PADDING/2);
+      ctx.globalAlpha = (p === MIN || p === MAX || p === 0) ? 0.5 : 0.2;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Границы −10 и +10
+    ctx.save();
+    ctx.strokeStyle = '#fb7185'; // danger
+    ctx.lineWidth = 2.5;
+    // левая
+    ctx.beginPath();
+    ctx.moveTo(xFromPos(MIN), PADDING/2);
+    ctx.lineTo(xFromPos(MIN), h - PADDING/2);
+    ctx.stroke();
+    // правая
+    ctx.beginPath();
+    ctx.moveTo(xFromPos(MAX), PADDING/2);
+    ctx.lineTo(xFromPos(MAX), h - PADDING/2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Нулевая вертикаль
+    ctx.save();
+    ctx.strokeStyle = '#38bdf8'; // accent
+    ctx.setLineDash([6,6]);
+    ctx.beginPath();
+    ctx.moveTo(xFromPos(0), PADDING/2);
+    ctx.lineTo(xFromPos(0), h - PADDING/2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Подписи
+    ctx.save();
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '12px ui-monospace, Menlo, Monaco, Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('-10', xFromPos(MIN), h - 12);
+    ctx.fillText('0', xFromPos(0), h - 12);
+    ctx.fillText('+10', xFromPos(MAX), h - 12);
+    ctx.textAlign = 'right';
+    ctx.fillText('прошлое', w - 10, h - PADDING + 14);
+    ctx.textAlign = 'right';
+    ctx.fillText('будущее ↑', w - 10, PADDING - 10);
+    ctx.restore();
+  }
+
+  function drawPath(){
+    if (history.length === 0) return;
+    // Ломаная траектории
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#38bdf8';
+    for (let t = 0; t < history.length; t++){
+      const x = xFromPos(history[t]);
+      const y = yFromStep(t);
+      if (t === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Текущий шарик
+    const currX = xFromPos(history[history.length - 1]);
+    const currY = yFromStep(history.length - 1);
+    ctx.save();
+    ctx.fillStyle = '#34d399';
+    ctx.beginPath();
+    ctx.arc(currX, currY, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function redraw(){
+    drawAxes();
+    drawPath();
+  }
+
+  function updateUI(state){
+    posOut.textContent = pos.toString();
+    stepsOut.textContent = steps.toString();
+    const left = 10 - pos; // деньги левого игрока
+    const right = 10 + pos; // деньги правого игрока
+    leftOut.textContent = String(left);
+    rightOut.textContent = String(right);
+    stateOut.textContent = state || (running ? 'идёт…' : 'готов');
+  }
+
+  function stepOnce(){
+    if (pos <= MIN || pos >= MAX) return; // уже на краю — останов
+
+    const bit = Math.random() < 0.5 ? 0 : 1; // 0 — влево, 1 — вправо
+    coinOut.textContent = String(bit);
+
+    pos += (bit === 1 ? +1 : -1);
+    steps += 1;
+    history.push(pos);
+
+    // если уходим за верхнюю границу полотна — просто увеличим высоту и перерисуем
+    const yTop = yFromStep(history.length - 1);
+    if (yTop < PADDING) {
+      // увеличиваем CSS-высоту canvas на 120px
+      const cssH = cv.clientHeight + 120;
+      cv.style.height = cssH + 'px';
+      setupCanvas(); // пересчёт размеров и полная перерисовка
+    }
+
+    redraw();
+
+    if (pos === MIN || pos === MAX){
+      stop();
+      const side = pos === MAX ? '+10 (правая граница)' : '−10 (левая граница)';
+      updateUI(`стоп: достиг края ${side} за ${steps} шагов`);
+    } else {
+      updateUI();
+    }
+  }
+
+  function start(){
+    if (running) return;
+    running = true;
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    stepBtn.disabled = true;
+    stateOut.textContent = 'идёт…';
+    const ms = Number(speed.value);
+    timer = setInterval(stepOnce, ms);
+  }
+  function stop(){
+    running = false;
+    if (timer) clearInterval(timer);
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    stepBtn.disabled = false;
+  }
+  function reset(){
+    stop();
+    pos = Number(startPos.value); steps = 0; history.length = 0; coinOut.textContent = '—';
+    history.push(pos); // стартовая точка (не обязательно 0)
+    // вернуть канвас к исходной высоте
+    cv.style.height = '560px';
+    setupCanvas();
+    updateUI('готов');
+  }
+
+  // Контролы
+  startBtn.addEventListener('click', start);
+  stopBtn.addEventListener('click', stop);
+  stepBtn.addEventListener('click', stepOnce);
+  resetBtn.addEventListener('click', reset);
+  speed.addEventListener('input', () => {
+    speedLabel.textContent = `${speed.value} мс`;
+    if (running){
+      clearInterval(timer);
+      timer = setInterval(stepOnce, Number(speed.value));
+    }
+  });
+
+  // выбор старта: слайдер ↔ поля игроков
+  function syncFromStartPos(){
+    const p = Number(startPos.value);
+    startPosLabel.textContent = p.toString();
+    startLeft.value = (10 - p);
+    startRight.value = (10 + p);
+  }
+  function clamp01(x, min, max){ return Math.max(min, Math.min(max, x)); }
+  function syncFromStartLeft(){
+    let L = Math.round(Number(startLeft.value) || 0);
+    L = clamp01(L, 0, TOT);
+    const R = TOT - L;
+    startLeft.value = L;
+    startRight.value = R;
+    startPos.value = (R - 10);
+    startPosLabel.textContent = startPos.value;
+  }
+  function syncFromStartRight(){
+    let R = Math.round(Number(startRight.value) || 0);
+    R = clamp01(R, 0, TOT);
+    const L = TOT - R;
+    startRight.value = R;
+    startLeft.value = L;
+    startPos.value = (R - 10);
+    startPosLabel.textContent = startPos.value;
+  }
+
+  startPos.addEventListener('input', syncFromStartPos);
+  startLeft.addEventListener('input', syncFromStartLeft);
+  startRight.addEventListener('input', syncFromStartRight);
+
+  // Инициализация
+  function init(){
+    setupCanvas();
+    syncFromStartPos();
+    pos = Number(startPos.value); // старт из выбранной позиции
+    history.push(pos); // t=0
+    redraw();
+    updateUI('готов');
+  }
+  init();
+})();
+</script>
+</body>
+</html>
