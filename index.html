@@ -18,7 +18,13 @@
       --grid: #374151;         /* gray-700 */
     }
     * { box-sizing: border-box; }
-    html, body { height: 100%; }
+    html, body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 70% 0%, #0b1220 10%, var(--bg));
+      color: var(--text);
+      overflow-x: hidden;
+    }
     body {
       margin: 0;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
@@ -26,9 +32,9 @@
       color: var(--text);
     }
     .app {
-      max-width: 1100px;
-      margin: 24px auto;
-      padding: 16px;
+      max-width: 760px;
+      margin: 16px auto;
+      padding: 12px;
     }
     .header {
       display: flex;
@@ -47,7 +53,7 @@
       box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.02);
     }
 
-    .controls { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 12px; align-items: center; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: center; }
     .controls .group { display: flex; gap: 10px; align-items: center; }
 
     button {
@@ -65,7 +71,7 @@
 
     .stat {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 10px; margin-top: 12px; font-size: .95rem;
     }
     .stat .item { background: #0b1324; border: 1px solid #1f2937; border-radius: 12px; padding: 10px 12px; }
@@ -132,19 +138,27 @@
       <span class="mono">Σ=20</span>
     </div>
   </div>
-    <div class="grow"></div>
-    <div class="group">
-      <label for="speed">Скорость:</label>
-      <input id="speed" type="range" min="100" max="2000" step="100" value="1000" />
-      <span id="speedLabel" class="mono">1000 мс</span>
-    </div>
-  </div>
 
   <div class="stat">
     <div class="item"><div class="label">Левый (руб)</div><div class="value mono" id="leftOut">10</div></div>
     <div class="item"><div class="label">Правый (руб)</div><div class="value mono" id="rightOut">10</div></div>
-    <div class="item"><div class="label">Позиция (−10…+10)</div><div class="value mono" id="posOut">0</div></div>
-    <div class="item"><div class="label">Шаги</div><div class="value mono" id="stepsOut">0</div></div>
+    <div class="item"><div class="label">Позиция (−10…+10)</div>
+
+  <div class="canvas-wrap panel">
+    <canvas id="cv" height="560"></canvas>
+  </div>
+
+  <div class="legend">
+    <span class="pill"><span class="dot path"></span>траектория</span>
+    &nbsp; <span class="pill"><span class="dot ball"></span>текущая позиция</span>
+    &nbsp; <span class="pill"><span class="dot boundary"></span>границы −10 / +10</span>
+    &nbsp; <span class="pill">вниз — прошлое, вверх — будущее</span>
+    &nbsp; <span class="pill">исход: достигнет края → остановка</span>
+  </div>
+
+  <div class="footer">
+    Под капотом — классическая «гибель игрока» (gambler's ruin) с симметричным шагом. 
+  </div><div class="value mono" id="stepsOut">0</div></div>
     <div class="item"><div class="label">Последняя монета</div><div class="value mono" id="coinOut">—</div></div>
     <div class="item"><div class="label">Состояние</div><div class="value mono" id="stateOut">готов</div></div>
   </div><div class="value mono" id="posOut">0</div></div>
@@ -154,7 +168,7 @@
   </div>
 
   <div class="canvas-wrap panel">
-    <canvas id="cv" width="1100" height="560"></canvas>
+    <canvas id="cv" height="560"></canvas>
   </div>
 
   <div class="legend">
